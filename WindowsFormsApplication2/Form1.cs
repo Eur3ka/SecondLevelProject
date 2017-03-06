@@ -418,6 +418,18 @@ namespace WindowsFormsApplication2
             }
 
         }
+
+        class myPoint
+        {
+            public int X;
+            public int Y;
+            public myPoint(int x,int y)
+            {
+                X = x;
+                Y = y;
+            }
+        }
+
         
         #region 界面
 
@@ -431,8 +443,8 @@ namespace WindowsFormsApplication2
         Point p = new Point(0, 0);
         bool hasSelect = false;
         //记录被选中的坐标
-        Point selectPoint = new Point(-1, -1);
-        Point expModPoint = new Point(-1, -1);
+        myPoint selectPoint = null;
+        myPoint expModPoint = null;
         TextBox expModTxb = null;
         VScrollBar vsb;
         //记录是否进入表达式模式
@@ -458,7 +470,7 @@ namespace WindowsFormsApplication2
             pan.Controls.Add(vsb);
             pan.Controls.Add(hsb);
             pan.Location = new Point(0, 200);
-            pan.Size = new Size(this.Size.Width-20, this.Size.Height - 240);
+            pan.Size = new Size(this.Size.Width-20, this.Size.Height - 250);
             Button fstBtn = new Button();
             fstBtn.Location = new Point(0, 0);
             fstBtn.Size = new Size(50, 20);
@@ -486,6 +498,7 @@ namespace WindowsFormsApplication2
                 btn.Text = "R" + (i + 1);
                 btn.Location = new Point(0, 20 + i * 20);
                 btn.Size = new Size(50, 20);
+                btn.Enter += Btn_Enter;
                 pan.Controls.Add(btn);
                 rowButton.Add(btn);
             }
@@ -498,6 +511,23 @@ namespace WindowsFormsApplication2
             picbox.MouseDoubleClick += Picbox_MouseDoubleClick;
             picbox.PreviewKeyDown += Picbox_PreviewKeyDown;
             picbox.MouseWheel += Picbox_MouseWheel;
+            hsb.Enter += Hsb_Enter;
+            vsb.Enter += Vsb_Enter;
+        }
+
+        private void Vsb_Enter(object sender, EventArgs e)
+        {
+            picbox.Focus();
+        }
+
+        private void Hsb_Enter(object sender, EventArgs e)
+        {
+            picbox.Focus();
+        }
+
+        private void Btn_Enter(object sender, EventArgs e)
+        {
+            picbox.Focus();
         }
 
         private void Picbox_MouseWheel(object sender, MouseEventArgs e)
@@ -526,6 +556,7 @@ namespace WindowsFormsApplication2
                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
                 }
             }
+            drawRectangle(selectPoint);
         }
         
         private void Hsb_ValueChanged(object sender, EventArgs e)
@@ -538,6 +569,7 @@ namespace WindowsFormsApplication2
             {
                 colButton[i].Text = "C" + (i + hsbar.Value + 1);
             }
+            drawRectangle(selectPoint);
         }
 
         private void Vsb_ValueChanged(object sender, EventArgs e)
@@ -550,15 +582,16 @@ namespace WindowsFormsApplication2
             {
                 rowButton[i].Text = "R" + (i + vsbar.Value+1);
             }
+            drawRectangle(selectPoint);
         }
 
         //双击某绘制的单元格处会在此处生成一个textbox,用于输入文本
         private void Picbox_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             //使其坐标变为整数(取左上角)
-            int x = e.X/75;
-            int y = e.Y/20;
-            generateTextBox(new Point(x,y));
+            int x = e.Y / 20;
+            int y = e.X / 75;
+            generateTextBox(new myPoint(x,y));
         }
 
         private void Picbox_MouseClick(object sender, MouseEventArgs e)
@@ -567,20 +600,20 @@ namespace WindowsFormsApplication2
             int x = e.X/ 75;
             int y = e.Y/ 20;
             hasSelect = true;
-            selectPoint = new Point(x, y);
+            selectPoint = new myPoint(p.X+y, p.Y+x);
             drawPic();
-            g.DrawRectangle(new Pen(Color.Black, 2), selectPoint.X * 75, selectPoint.Y * 20, 75, 20);
+            g.DrawRectangle(new Pen(Color.Black, 2), (selectPoint.Y-p.Y )* 75, (selectPoint.X - p.X) * 20, 75, 20);
             picbox.Image = img;
         }
 
-        private void generateTextBox(Point loc)
+        private void generateTextBox(myPoint loc)
         {
             #region 生成文本框
             TextBox txb = new TextBox();
             //使其坐标变为整数(取左上角)
-            int x = loc.X * 75;
-            int y = loc.Y * 20;
-            txb.Location = new Point(picbox.Location.X + x, picbox.Location.Y + y);
+            int x = loc.X * 20;
+            int y = loc.Y * 75;
+            txb.Location = new Point(picbox.Location.X + y, picbox.Location.Y + x);
             txb.Size = new Size(75, 20);
             pan.Controls.Add(txb);
             txb.BringToFront();
@@ -588,8 +621,8 @@ namespace WindowsFormsApplication2
             #endregion
 
             //记录此时文本框的信息
-            int m = y / 20;
-            int n = x / 75;
+            int m = x / 20;
+            int n = y / 75;
             var tp = new Point(p.X + m, p.Y + n);
             if (Node.dirData.ContainsKey(tp))
             {
@@ -609,6 +642,7 @@ namespace WindowsFormsApplication2
             {
                 picbox.Focus();
             }
+            drawRectangle(selectPoint);
         }
 
         Thread thread;
@@ -621,13 +655,25 @@ namespace WindowsFormsApplication2
             create();
         }
 
+        private void drawRectangle(myPoint point)
+        {
+            if (point != null)
+            {
+                if (point.X >= p.X && point.Y >= p.Y)
+                {
+                    g.DrawRectangle(new Pen(Color.Black, 2), (point.Y - p.Y) * 75, (point.X - p.X) * 20, 75, 20);
+                    picbox.Image = img;
+                }
+            }
+        }
+
         private void Picbox_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
             switch(e.KeyCode)
             {
                 case Keys.Oemplus:
                     {
-                        if (selectPoint != null)
+                        if (selectPoint!=null)
                         {
                             
                         }
@@ -643,16 +689,92 @@ namespace WindowsFormsApplication2
                     }
                 case Keys.Up:
                     {
-                        if (selectPoint != null)
+                        if (p.X < selectPoint.X)
                         {
-                            if(selectPoint.Y == p.Y)
+                            selectPoint.X--;
+                            drawPic();
+                            drawRectangle(selectPoint);
+                            picbox.Focus();
+                        }
+                        else
+                        {
+                            if (vsb.Value > 0)
                             {
-                                p.Y--;
+                                vsb.Value--;
+                                selectPoint.X--;
+                                picbox.Focus();
+                                p.X = vsb.Value;
+                                drawPic();
+                                for (int i = 0; i < rowButton.Count; ++i)
+                                {
+                                    rowButton[i].Text = "R" + (i + vsb.Value + 1);
+                                }
+                                drawPic();
+                                drawRectangle(selectPoint);
+                                picbox.Focus();
+                            }
+                        }
+
+                        break;
+                    }
+                case Keys.Down:
+                    {
+                        if (p.X+rowButton.Count > selectPoint.X+1)
+                        {
+                            selectPoint.X++;
+                            drawPic();
+                            drawRectangle(selectPoint);
+                            picbox.Focus();
+                        }
+                        else
+                        {
+                            if (vsb.Value < 65535)
+                            {
+                                vsb.Value++;
+                                selectPoint.X++;
+                                picbox.Focus();
+                                p.X = vsb.Value;
+                                drawPic();
+                                for (int i = 0; i < rowButton.Count; ++i)
+                                {
+                                    rowButton[i].Text = "R" + (i + vsb.Value + 1);
+                                }
+                                drawPic();
+                                drawRectangle(selectPoint);
+                                picbox.Focus();
                             }
                         }
                         break;
                     }
+                case Keys.Left:
+                    {
+                        if (p.X >= 0)
+                        {
+                            selectPoint.Y--;
+                            drawPic();
+                            if (selectPoint != null)
+                            {
+                                drawRectangle(selectPoint);
+                            }
+                            picbox.Focus();
+                        }
+                        break;
+                    }
 
+                case Keys.Right:
+                    {
+                        if (p.X >= 0)
+                        {
+                            selectPoint.Y++;
+                            drawPic();
+                            if (selectPoint != null)
+                            {
+                                drawRectangle(selectPoint);
+                            }
+                            picbox.Focus();
+                        }
+                        break;
+                    }
             }
         }
 
@@ -664,6 +786,7 @@ namespace WindowsFormsApplication2
                 save("autoSave.txt");
             }
         }
+
         
         private bool isEmptyNode(Node node)
         {
