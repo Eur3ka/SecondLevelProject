@@ -67,15 +67,11 @@ namespace WindowsFormsApplication2
                 }
 
                 var repeatList = checkLoop.Intersect(wasConnetNode).ToList();
+                connetNode = checkLoop;
                 if (repeatList.Count > 0)
                 {
                     throw new Exception("存在循环引用");
                 }
-                else
-                {
-                    connetNode = checkLoop;
-                }
-
 
                 return sourceString;
             }
@@ -95,6 +91,10 @@ namespace WindowsFormsApplication2
                 string result = "";
                 int n = sourceString.Count();
                 int m = 0;
+                if(n == 0)
+                {
+                    throw new Exception("字符串为空");
+                }
                 while (n != m)
                 {
                     n = sourceString.Count();
@@ -386,14 +386,21 @@ namespace WindowsFormsApplication2
             /// 修改信息的总接口
             /// </summary>
             /// <param name="text">源表达式</param>
-            public void write(string text)
+            public void write(string text,TextBox txb = null)
             {
                 try
                 {
                     if (text.IndexOf('=') == 0)
                     {
-                        disconnect();
-                        calculation(text.Substring(1));
+                        try
+                        {
+                            disconnect();
+                            calculation(text.Substring(1));
+                        }
+                        catch(Exception e)
+                        {
+                            MessageBox.Show("公式错误");
+                        }
                     }
                     else
                     {
@@ -407,6 +414,12 @@ namespace WindowsFormsApplication2
                 catch(Exception e)
                 {
                     MessageBox.Show("请检查输入是否正确\n错误信息:" + e.Message);
+                    string preData = this.data;
+                    this.write(preData);
+                    if (txb != null)
+                    {
+                        txb.Text = preData;
+                    }
                 }
             }
 
@@ -430,7 +443,7 @@ namespace WindowsFormsApplication2
                 X = x;
                 Y = y;
             }
-
+            
             public int CompareTo(myPoint other)
             {
                 if (this.X == other.X)
@@ -457,8 +470,32 @@ namespace WindowsFormsApplication2
                     return -1;
                 }
             }
+
+            public override bool Equals(object obj)
+            {
+                if (obj == null)
+                {
+                    return false;
+                }
+                if ((obj.GetType().Equals(this.GetType())) == false)
+                {
+                    return false;
+                }
+                myPoint temp =(myPoint)obj;
+
+                return this.X.Equals(temp.X) && this.Y.Equals(temp.Y);
+
+            }
+
+            //重写GetHashCode方法（重写Equals方法必须重写GetHashCode方法，否则发生警告
+
+            public override int GetHashCode()
+            {
+                return this.X.GetHashCode() + this.Y.GetHashCode();
+            }
         }
 
+        
 
         #region 界面
 
@@ -476,7 +513,6 @@ namespace WindowsFormsApplication2
         VScrollBar vsb;
         HScrollBar hsb;
         //记录是否进入表达式模式
-        bool isExpMod = false;
         private void create()
         {
             pan = new Panel();
@@ -620,13 +656,12 @@ namespace WindowsFormsApplication2
         }
 
         myPoint expSelectPoint = null;
-        List<myPoint> selectPoints = new List<myPoint>();
         private void Picbox_MouseClick(object sender, MouseEventArgs e)
         {
             picbox.Focus();
             int x = e.X / 75;
             int y = e.Y / 20;
-            if (!isExpMod)
+            if (!isExpModing)
             {
                 selectPoint = new myPoint(p.X + y, p.Y + x);
                 drawPic();
@@ -643,14 +678,11 @@ namespace WindowsFormsApplication2
             }
             else
             {
-                expSelectPoint = new myPoint(p.X + y, p.Y + x);
-                if(selectPoints.Contains(expModPoint))
+                if (isExpModing)
                 {
-                    selectPoints.Remove(selectPoint);
+                    expSelectPoint = new myPoint(p.X + y, p.Y + x);
+                    textBox1.Text += "R" + expSelectPoint.X + "C" + expSelectPoint.Y + ";";
                 }
-                drawPic();
-                g.DrawRectangle(new Pen(Color.Black, 2), (selectPoint.Y - p.Y) * 75, (selectPoint.X - p.X) * 20, 75, 20);
-                textBox1.Text += "R";
             }
         }
 
@@ -730,10 +762,14 @@ namespace WindowsFormsApplication2
             {
                 case Keys.Oemplus:
                     {
-                        if (selectPoint!=null)
+                        if (!isExpModing)
                         {
-                            isExpMod = true;
-                            expModPoint = selectPoint;
+                            if (selectPoint != null)
+                            {
+                                isExpModing = true;
+                                expModPoint = selectPoint;
+                                textBox1.Text = "=";
+                            }
                         }
                         break;
                     }
@@ -743,9 +779,9 @@ namespace WindowsFormsApplication2
                         {
                             generateTextBox(selectPoint);
                         }
-                        if(isExpMod)
+                        if(isExpModing)
                         {
-                            isExpMod = false;
+                            isExpModing = false;
                         }
                         break;
                     }
@@ -754,7 +790,6 @@ namespace WindowsFormsApplication2
                         if (p.X < selectPoint.X)
                         {
                             selectPoint.X--;
-                            picbox.Focus();
                         }
                         else
                         {
@@ -769,12 +804,19 @@ namespace WindowsFormsApplication2
                                 {
                                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
                                 }
-                                picbox.Focus();
                             }
                         }
-
+                        if (Node.dirData.ContainsKey(selectPoint))
+                        {
+                            textBox1.Text = Node.dirData[selectPoint].data;
+                        }
+                        else
+                        {
+                            textBox1.Text = "";
+                        }
                         drawPic();
                         drawRectangle(selectPoint);
+                        picbox.Focus();
                         break;
                     }
                 case Keys.Down:
@@ -782,9 +824,6 @@ namespace WindowsFormsApplication2
                         if (p.X+rowButton.Count-2 > selectPoint.X+1)
                         {
                             selectPoint.X++;
-                            drawPic();
-                            drawRectangle(selectPoint);
-                            picbox.Focus();
                         }
                         else
                         {
@@ -798,11 +837,19 @@ namespace WindowsFormsApplication2
                                 {
                                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
                                 }
-                                drawPic();
-                                drawRectangle(selectPoint);
-                                picbox.Focus();
                             }
                         }
+                        if (Node.dirData.ContainsKey(selectPoint))
+                        {
+                            textBox1.Text = Node.dirData[selectPoint].data;
+                        }
+                        else
+                        {
+                            textBox1.Text = "";
+                        }
+                        drawPic();
+                        drawRectangle(selectPoint);
+                        picbox.Focus();
                         break;
                     }
                 case Keys.Left:
@@ -810,8 +857,6 @@ namespace WindowsFormsApplication2
                         if (p.Y < selectPoint.Y)
                         {
                             selectPoint.Y--;
-                            drawPic();
-                            drawRectangle(selectPoint);
                             picbox.Focus();
                         }
                         else
@@ -826,12 +871,19 @@ namespace WindowsFormsApplication2
                                 {
                                     colButton[i].Text = "R" + (i + hsb.Value + 1);
                                 }
-                                drawPic();
-                                drawRectangle(selectPoint);
-                                picbox.Focus();
                             }
                         }
-                        
+                        if (Node.dirData.ContainsKey(selectPoint))
+                        {
+                            textBox1.Text = Node.dirData[selectPoint].data;
+                        }
+                        else
+                        {
+                            textBox1.Text = "";
+                        }
+                        drawPic();
+                        drawRectangle(selectPoint);
+                        picbox.Focus();
                         break;
                     }
 
@@ -840,9 +892,6 @@ namespace WindowsFormsApplication2
                         if (p.Y + colButton.Count > selectPoint.Y + 2)
                         {
                             selectPoint.Y++;
-                            drawPic();
-                            drawRectangle(selectPoint);
-                            picbox.Focus();
                         }
                         else
                         {
@@ -856,11 +905,19 @@ namespace WindowsFormsApplication2
                                 {
                                     colButton[i].Text = "R" + (i + hsb.Value + 1);
                                 }
-                                drawPic();
-                                drawRectangle(selectPoint);
-                                picbox.Focus();
                             }
                         }
+                        if (Node.dirData.ContainsKey(selectPoint))
+                        {
+                            textBox1.Text = Node.dirData[selectPoint].data;
+                        }
+                        else
+                        {
+                            textBox1.Text = "";
+                        }
+                        drawPic();
+                        drawRectangle(selectPoint);
+                        picbox.Focus();
                         break;
                     }
             }
@@ -983,97 +1040,151 @@ namespace WindowsFormsApplication2
             MessageBox.Show("保存成功");
         }
         
-        private void read()
-        {
 
-            FileStream fs = new FileStream("data.txt", FileMode.OpenOrCreate);
-            StreamReader sr = new StreamReader(fs);
-            Node.dirData.Clear();
-            string helper = sr.ReadLine();
-            Regex reg = new Regex(@"R(\d+)C(\d+);");
-            while (helper != null)
-            {
-                var info = helper.Split('|');
-                var match = reg.Match(info[2]);
-                int x = int.Parse(match.Groups[1].Value);
-                int y = int.Parse(match.Groups[2].Value);
-                myPoint p = new myPoint(x, y);
-                Node n = new Node(p);
-                n.data = info[0];
-                n.function = info[1];
-                n.location = p;
-                var mat = reg.Matches(info[3]);
-                foreach (Match item in mat)
-                {
-                    x = int.Parse(item.Groups[1].Value);
-                    y = int.Parse(item.Groups[2].Value);
-                    n.connetNode.Add(new myPoint(x, y));
-                }
-                mat = reg.Matches(info[4]);
-                foreach (Match item in mat)
-                {
-                    x = int.Parse(item.Groups[1].Value);
-                    y = int.Parse(item.Groups[2].Value);
-                    n.wasConnetNode.Add(new myPoint(x, y));
-                }
-                Node.dirData[p] = n;
-                helper = sr.ReadLine();
-            }
-            drawPic();
-            sr.Close();
-            fs.Close();
-        }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            read();
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "txt文件(*.txt) | *.txt";
+            if (ofd.ShowDialog() == DialogResult.OK)
+            {
+                FileStream fs = new FileStream(ofd.FileName, FileMode.OpenOrCreate);
+                StreamReader sr = new StreamReader(fs);
+                Node.dirData.Clear();
+                string helper = sr.ReadLine();
+                Regex reg = new Regex(@"R(\d+)C(\d+);");
+                while (helper != null)
+                {
+                    var info = helper.Split('|');
+                    var match = reg.Match(info[2]);
+                    int x = int.Parse(match.Groups[1].Value);
+                    int y = int.Parse(match.Groups[2].Value);
+                    myPoint p = new myPoint(x, y);
+                    Node n = new Node(p);
+                    n.data = info[0];
+                    n.function = info[1];
+                    n.location = p;
+                    var mat = reg.Matches(info[3]);
+                    foreach (Match item in mat)
+                    {
+                        x = int.Parse(item.Groups[1].Value);
+                        y = int.Parse(item.Groups[2].Value);
+                        n.connetNode.Add(new myPoint(x, y));
+                    }
+                    mat = reg.Matches(info[4]);
+                    foreach (Match item in mat)
+                    {
+                        x = int.Parse(item.Groups[1].Value);
+                        y = int.Parse(item.Groups[2].Value);
+                        n.wasConnetNode.Add(new myPoint(x, y));
+                    }
+                    Node.dirData[p] = n;
+                    helper = sr.ReadLine();
+                }
+                drawPic();
+                sr.Close();
+                fs.Close();
+            }
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            save("data.txt");
+            SaveFileDialog sfd = new SaveFileDialog();
+
+            //设置文件类型
+            sfd.Filter = "txt文件(*.txt) | *.txt";
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                save(sfd.FileName);
+            }
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             thread.Abort();
         }
-
+        bool isExpModing = false;
         private void textBox1_Leave(object sender, EventArgs e)
         {
-            var sp = (myPoint)textBox1.Tag;
-            if (sp!=null)
+            if (!isExpModing)
             {
-                Node.dirData[sp].write(textBox1.Text);
+                var sp = (myPoint)textBox1.Tag;
+                if (sp != null)
+                {
+                    Node.dirData[sp].write(textBox1.Text,textBox1);
+                }
             }
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            FileStream fs = new FileStream("test.csv", FileMode.OpenOrCreate);
-            StreamReader sr = new StreamReader(fs);
-            Node.dirData.Clear();
-            string helper = sr.ReadLine();
-
-            int r = 0, c = 0;
-            while (helper != null)
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "csv文件(*.csv) | *.csv";
+            if (ofd.ShowDialog() == DialogResult.OK)
             {
-                
-                var nums = helper.Split(',');
-                c = 0;
-                while(c<nums.Count())
+                FileStream fs = new FileStream(ofd.FileName, FileMode.OpenOrCreate);
+                StreamReader sr = new StreamReader(fs);
+                Node.dirData.Clear();
+                string helper = sr.ReadLine();
+
+                int r = 0, c = 0;
+                while (helper != null)
                 {
-                    myPoint mp = new myPoint(r,c);
-                    Node.dirData[mp] = new Node(mp);
-                    Node.dirData[mp].write(nums[c]);
-                    c++;
+
+                    var nums = helper.Split(',');
+                    c = 0;
+                    while (c < nums.Count())
+                    {
+                        myPoint mp = new myPoint(r, c);
+                        Node.dirData[mp] = new Node(mp);
+                        Node.dirData[mp].write(nums[c]);
+                        c++;
+                    }
+                    helper = sr.ReadLine();
+                    r++;
                 }
-                helper = sr.ReadLine();
-                r++;
+                drawPic();
+                sr.Close();
+                fs.Close();
             }
-            drawPic();
-            sr.Close();
-            fs.Close();
+        }
+
+        private void textBox1_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+
+
+            if (e.KeyCode == Keys.Enter)
+            {
+                if (isExpModing)
+                {
+                    isExpModing = false;
+                    if (!Node.dirData.ContainsKey(expModPoint))
+                    {
+                        Node.dirData[expModPoint] = new Node(expModPoint);
+                    }
+                    Node.dirData[expModPoint].write(textBox1.Text, textBox1);
+                    
+                    drawPic();
+                    expSelectPoint = null;
+                    expSelectPoint = null;
+                }
+                else
+                {
+                    if (selectPoint != null)
+                    {
+                        if (!Node.dirData.ContainsKey(selectPoint))
+                        {
+                            Node.dirData[selectPoint] = new Node(selectPoint);
+                        }
+                        Node.dirData[selectPoint].write(textBox1.Text,textBox1);
+                        drawPic();
+                    }
+                    else
+                    {
+                        MessageBox.Show("未选中单元格");
+                    }
+                }
+            }
         }
     }
 }
