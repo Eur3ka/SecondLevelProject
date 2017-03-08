@@ -33,6 +33,7 @@
             this.button2 = new System.Windows.Forms.Button();
             this.button1 = new System.Windows.Forms.Button();
             this.textBox1 = new System.Windows.Forms.TextBox();
+            this.button3 = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
             this.SuspendLayout();
@@ -42,17 +43,18 @@
             this.panel1.Controls.Add(this.panel2);
             this.panel1.Location = new System.Drawing.Point(115, 12);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(752, 59);
+            this.panel1.Size = new System.Drawing.Size(858, 59);
             this.panel1.TabIndex = 0;
             // 
             // panel2
             // 
+            this.panel2.Controls.Add(this.button3);
             this.panel2.Controls.Add(this.button2);
             this.panel2.Controls.Add(this.button1);
             this.panel2.Controls.Add(this.textBox1);
             this.panel2.Location = new System.Drawing.Point(16, 3);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(733, 42);
+            this.panel2.Size = new System.Drawing.Size(825, 42);
             this.panel2.TabIndex = 1;
             // 
             // button2
@@ -81,6 +83,17 @@
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(519, 21);
             this.textBox1.TabIndex = 0;
+            this.textBox1.Leave += new System.EventHandler(this.textBox1_Leave);
+            // 
+            // button3
+            // 
+            this.button3.Location = new System.Drawing.Point(734, 2);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(75, 23);
+            this.button3.TabIndex = 3;
+            this.button3.Text = "button3";
+            this.button3.UseVisualStyleBackColor = true;
+            this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
             // Form1
             // 
@@ -108,6 +121,7 @@
         private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button button3;
     }
 }
 

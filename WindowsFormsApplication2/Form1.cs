@@ -24,14 +24,16 @@ namespace WindowsFormsApplication2
 
         class Node
         {
-            static public Dictionary<Point, Node> dirData = new Dictionary<Point, Node>();
+            static public SortedDictionary<myPoint, Node> dirData = new SortedDictionary<myPoint, Node>();
             
             public string data;
-            public Point location;
+            public myPoint location;
             public string function;
 
-            public List<Point> connetNode;
-            public List<Point> wasConnetNode;
+            public List<myPoint> connetNode;
+            public List<myPoint> wasConnetNode;
+
+            
 
             /// <summary>
             /// 解析表达式,构建关系表
@@ -43,14 +45,14 @@ namespace WindowsFormsApplication2
                 Regex reg = new Regex(@"R(\d+)C(\d+);");
                 var mat = reg.Matches(function);
 
-                List<Point> checkLoop = new List<Point>();
+                List<myPoint> checkLoop = new List<myPoint>();
                 foreach (Match item in mat)
                 {
                     string t = item.Groups[0].Value;
                     int x = int.Parse(item.Groups[1].Value);
                     int y = int.Parse(item.Groups[2].Value);
                     //与数据点建立连接
-                    Point p = new Point(x, y);
+                    myPoint p = new myPoint(x, y);
                     if (!dirData.ContainsKey(p))
                     {
                         dirData[p] = new Node(p);
@@ -347,7 +349,7 @@ namespace WindowsFormsApplication2
                     }
                 }
 
-                data = calculater(removeParentheses(sourceString));
+                data = calculater(dealWithString(removeParentheses(sourceString)));
 
             }
             #endregion
@@ -408,18 +410,18 @@ namespace WindowsFormsApplication2
                 }
             }
 
-            public Node(Point point)
+            public Node(myPoint point)
             {
                 location = point;
                 data = "";
                 function = "";
-                connetNode = new List<Point>();
-                wasConnetNode = new List<Point>();
+                connetNode = new List<myPoint>();
+                wasConnetNode = new List<myPoint>();
             }
 
         }
 
-        class myPoint
+        class myPoint:IComparable<myPoint>
         {
             public int X;
             public int Y;
@@ -428,9 +430,36 @@ namespace WindowsFormsApplication2
                 X = x;
                 Y = y;
             }
+
+            public int CompareTo(myPoint other)
+            {
+                if (this.X == other.X)
+                {
+                    if (this.Y == other.Y)
+                    {
+                        return 0;
+                    }
+                    else if (this.Y > other.Y)
+                    {
+                        return 1;
+                    }
+                    else
+                    {
+                        return -1;
+                    }
+                }
+                else if (this.X > other.X)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return -1;
+                }
+            }
         }
 
-        
+
         #region 界面
 
         List<Button> colButton = new List<Button>();
@@ -441,12 +470,11 @@ namespace WindowsFormsApplication2
         Image img;
         //记录最左上角的坐标
         Point p = new Point(0, 0);
-        bool hasSelect = false;
         //记录被选中的坐标
         myPoint selectPoint = null;
         myPoint expModPoint = null;
-        TextBox expModTxb = null;
         VScrollBar vsb;
+        HScrollBar hsb;
         //记录是否进入表达式模式
         bool isExpMod = false;
         private void create()
@@ -455,7 +483,7 @@ namespace WindowsFormsApplication2
             this.Controls.Add(pan);
             vsb = new VScrollBar();
             vsb.Dock = DockStyle.Right;
-            HScrollBar hsb = new HScrollBar();
+            hsb = new HScrollBar();
             hsb.Dock = DockStyle.Bottom;
             vsb.Maximum = 65536;
             vsb.Minimum = 0;
@@ -470,7 +498,7 @@ namespace WindowsFormsApplication2
             pan.Controls.Add(vsb);
             pan.Controls.Add(hsb);
             pan.Location = new Point(0, 200);
-            pan.Size = new Size(this.Size.Width-20, this.Size.Height - 250);
+            pan.Size = new Size(this.Size.Width-20, this.Size.Height - 240);
             Button fstBtn = new Button();
             fstBtn.Location = new Point(0, 0);
             fstBtn.Size = new Size(50, 20);
@@ -588,52 +616,81 @@ namespace WindowsFormsApplication2
         //双击某绘制的单元格处会在此处生成一个textbox,用于输入文本
         private void Picbox_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            //使其坐标变为整数(取左上角)
-            int x = e.Y / 20;
-            int y = e.X / 75;
-            generateTextBox(new myPoint(x,y));
+            generateTextBox(selectPoint);
         }
 
+        myPoint expSelectPoint = null;
+        List<myPoint> selectPoints = new List<myPoint>();
         private void Picbox_MouseClick(object sender, MouseEventArgs e)
         {
             picbox.Focus();
-            int x = e.X/ 75;
-            int y = e.Y/ 20;
-            hasSelect = true;
-            selectPoint = new myPoint(p.X+y, p.Y+x);
-            drawPic();
-            g.DrawRectangle(new Pen(Color.Black, 2), (selectPoint.Y-p.Y )* 75, (selectPoint.X - p.X) * 20, 75, 20);
-            picbox.Image = img;
+            int x = e.X / 75;
+            int y = e.Y / 20;
+            if (!isExpMod)
+            {
+                selectPoint = new myPoint(p.X + y, p.Y + x);
+                drawPic();
+                g.DrawRectangle(new Pen(Color.Black, 2), (selectPoint.Y - p.Y) * 75, (selectPoint.X - p.X) * 20, 75, 20);
+                picbox.Image = img;
+                if (Node.dirData.ContainsKey(selectPoint))
+                {
+                    if (Node.dirData[selectPoint].function != "")
+                        textBox1.Text = "=" + Node.dirData[selectPoint].function;
+                    else
+                        textBox1.Text = Node.dirData[selectPoint].data;
+                    textBox1.Tag = selectPoint;
+                }
+            }
+            else
+            {
+                expSelectPoint = new myPoint(p.X + y, p.Y + x);
+                if(selectPoints.Contains(expModPoint))
+                {
+                    selectPoints.Remove(selectPoint);
+                }
+                drawPic();
+                g.DrawRectangle(new Pen(Color.Black, 2), (selectPoint.Y - p.Y) * 75, (selectPoint.X - p.X) * 20, 75, 20);
+                textBox1.Text += "R";
+            }
         }
 
         private void generateTextBox(myPoint loc)
         {
-            #region 生成文本框
-            TextBox txb = new TextBox();
-            //使其坐标变为整数(取左上角)
-            int x = loc.X * 20;
-            int y = loc.Y * 75;
-            txb.Location = new Point(picbox.Location.X + y, picbox.Location.Y + x);
-            txb.Size = new Size(75, 20);
-            pan.Controls.Add(txb);
-            txb.BringToFront();
-            txb.Focus();
-            #endregion
-
-            //记录此时文本框的信息
-            int m = x / 20;
-            int n = y / 75;
-            var tp = new Point(p.X + m, p.Y + n);
-            if (Node.dirData.ContainsKey(tp))
+            if (loc.X >= p.X && loc.Y >= p.Y&& p.X + rowButton.Count - 1 > selectPoint.X + 1)
             {
-                if (Node.dirData[tp].function != "")
-                    txb.Text = "=" + Node.dirData[tp].function;
-                else
-                    txb.Text = Node.dirData[tp].data;
+                #region 生成文本框
+                TextBox txb = new TextBox();
+                //使其坐标变为整数(取左上角)
+                int x = (loc.X - p.X) * 20;
+                int y = (loc.Y - p.Y) * 75;
+                txb.Location = new Point(picbox.Location.X + y, picbox.Location.Y + x);
+                txb.Size = new Size(75, 20);
+                pan.Controls.Add(txb);
+                txb.BringToFront();
+                txb.Focus();
+                #endregion
+
+                //记录此时文本框的信息
+                int m = x / 20;
+                int n = y / 75;
+                var tp = new myPoint(p.X + m, p.Y + n);
+                if (Node.dirData.ContainsKey(tp))
+                {
+                    if (Node.dirData[tp].function != "")
+                        txb.Text = "=" + Node.dirData[tp].function;
+                    else
+                        txb.Text = Node.dirData[tp].data;
+                }
+                txb.Tag = new Point((int)rowButton[m].Tag, (int)colButton[n].Tag);
+                txb.Leave += Txb_Leave;
+                txb.PreviewKeyDown += Txb_PreviewKeyDown;
+                txb.TextChanged += Txb_TextChanged;
             }
-            txb.Tag = new Point((int)rowButton[m].Tag, (int)colButton[n].Tag);
-            txb.Leave += Txb_Leave;
-            txb.PreviewKeyDown += Txb_PreviewKeyDown;
+        }
+
+        private void Txb_TextChanged(object sender, EventArgs e)
+        {
+            textBox1.Text = ((TextBox)sender).Text;
         }
 
         private void Txb_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
@@ -675,15 +732,20 @@ namespace WindowsFormsApplication2
                     {
                         if (selectPoint!=null)
                         {
-                            
+                            isExpMod = true;
+                            expModPoint = selectPoint;
                         }
                         break;
                     }
                 case Keys.Enter:
                     {
-                        if(hasSelect)
+                        if(selectPoint!=null)
                         {
                             generateTextBox(selectPoint);
+                        }
+                        if(isExpMod)
+                        {
+                            isExpMod = false;
                         }
                         break;
                     }
@@ -692,8 +754,6 @@ namespace WindowsFormsApplication2
                         if (p.X < selectPoint.X)
                         {
                             selectPoint.X--;
-                            drawPic();
-                            drawRectangle(selectPoint);
                             picbox.Focus();
                         }
                         else
@@ -709,17 +769,17 @@ namespace WindowsFormsApplication2
                                 {
                                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
                                 }
-                                drawPic();
-                                drawRectangle(selectPoint);
                                 picbox.Focus();
                             }
                         }
 
+                        drawPic();
+                        drawRectangle(selectPoint);
                         break;
                     }
                 case Keys.Down:
                     {
-                        if (p.X+rowButton.Count > selectPoint.X+1)
+                        if (p.X+rowButton.Count-2 > selectPoint.X+1)
                         {
                             selectPoint.X++;
                             drawPic();
@@ -734,7 +794,6 @@ namespace WindowsFormsApplication2
                                 selectPoint.X++;
                                 picbox.Focus();
                                 p.X = vsb.Value;
-                                drawPic();
                                 for (int i = 0; i < rowButton.Count; ++i)
                                 {
                                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
@@ -748,30 +807,59 @@ namespace WindowsFormsApplication2
                     }
                 case Keys.Left:
                     {
-                        if (p.X >= 0)
+                        if (p.Y < selectPoint.Y)
                         {
                             selectPoint.Y--;
                             drawPic();
-                            if (selectPoint != null)
-                            {
-                                drawRectangle(selectPoint);
-                            }
+                            drawRectangle(selectPoint);
                             picbox.Focus();
                         }
+                        else
+                        {
+                            if (hsb.Value > 0)
+                            {
+                                hsb.Value--;
+                                selectPoint.Y--;
+                                picbox.Focus();
+                                p.Y = hsb.Value;
+                                for (int i = 0; i < colButton.Count; ++i)
+                                {
+                                    colButton[i].Text = "R" + (i + hsb.Value + 1);
+                                }
+                                drawPic();
+                                drawRectangle(selectPoint);
+                                picbox.Focus();
+                            }
+                        }
+                        
                         break;
                     }
 
                 case Keys.Right:
                     {
-                        if (p.X >= 0)
+                        if (p.Y + colButton.Count > selectPoint.Y + 2)
                         {
                             selectPoint.Y++;
                             drawPic();
-                            if (selectPoint != null)
-                            {
-                                drawRectangle(selectPoint);
-                            }
+                            drawRectangle(selectPoint);
                             picbox.Focus();
+                        }
+                        else
+                        {
+                            if (hsb.Value < 256)
+                            {
+                                hsb.Value++;
+                                selectPoint.Y++;
+                                picbox.Focus();
+                                p.Y = hsb.Value;
+                                for (int i = 0; i < colButton.Count; ++i)
+                                {
+                                    colButton[i].Text = "R" + (i + hsb.Value + 1);
+                                }
+                                drawPic();
+                                drawRectangle(selectPoint);
+                                picbox.Focus();
+                            }
                         }
                         break;
                     }
@@ -787,7 +875,6 @@ namespace WindowsFormsApplication2
             }
         }
 
-        
         private bool isEmptyNode(Node node)
         {
             if (node.data == "" && node.function == "" && node.connetNode.Count == 0 && node.wasConnetNode.Count == 0)
@@ -800,7 +887,7 @@ namespace WindowsFormsApplication2
         private void Txb_Leave(object sender, EventArgs e)
         {
             var txb = sender as TextBox;
-            Point point = new Point(p.X + ((Point)txb.Tag).X, p.Y + ((Point)txb.Tag).Y);
+            myPoint point = new myPoint(p.X + ((Point)txb.Tag).X, p.Y + ((Point)txb.Tag).Y);
             if (!Node.dirData.ContainsKey(point))
             {
                 Node.dirData[point] = new Node(point);
@@ -833,12 +920,11 @@ namespace WindowsFormsApplication2
                 p1.Y += 20;
                 p2.Y = p1.Y;
             }
-            //完美!!
             for(int i = 0;i<rowButton.Count;++i)
             {
                 for(int j = 0;j<colButton.Count;++j)
                 {
-                    Point tempPoint = new Point(p.X + i, p.Y + j);
+                    myPoint tempPoint = new myPoint(p.X + i, p.Y + j);
                     if (Node.dirData.ContainsKey(tempPoint))
                     {
                         Font font = new Font("Consolas", 10);
@@ -876,7 +962,7 @@ namespace WindowsFormsApplication2
 
             foreach (var item in Node.dirData)
             {
-                Point p = item.Key;
+                myPoint p = item.Key;
                 Node n = item.Value;
                 string helper = n.data + "|" + n.function + "|" + "R" + p.X.ToString() + "C" + p.Y.ToString() + ";|";
                 foreach (var con in n.connetNode)
@@ -911,7 +997,7 @@ namespace WindowsFormsApplication2
                 var match = reg.Match(info[2]);
                 int x = int.Parse(match.Groups[1].Value);
                 int y = int.Parse(match.Groups[2].Value);
-                Point p = new Point(x, y);
+                myPoint p = new myPoint(x, y);
                 Node n = new Node(p);
                 n.data = info[0];
                 n.function = info[1];
@@ -921,14 +1007,14 @@ namespace WindowsFormsApplication2
                 {
                     x = int.Parse(item.Groups[1].Value);
                     y = int.Parse(item.Groups[2].Value);
-                    n.connetNode.Add(new Point(x, y));
+                    n.connetNode.Add(new myPoint(x, y));
                 }
                 mat = reg.Matches(info[4]);
                 foreach (Match item in mat)
                 {
                     x = int.Parse(item.Groups[1].Value);
                     y = int.Parse(item.Groups[2].Value);
-                    n.wasConnetNode.Add(new Point(x, y));
+                    n.wasConnetNode.Add(new myPoint(x, y));
                 }
                 Node.dirData[p] = n;
                 helper = sr.ReadLine();
@@ -951,6 +1037,43 @@ namespace WindowsFormsApplication2
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             thread.Abort();
+        }
+
+        private void textBox1_Leave(object sender, EventArgs e)
+        {
+            var sp = (myPoint)textBox1.Tag;
+            if (sp!=null)
+            {
+                Node.dirData[sp].write(textBox1.Text);
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            FileStream fs = new FileStream("test.csv", FileMode.OpenOrCreate);
+            StreamReader sr = new StreamReader(fs);
+            Node.dirData.Clear();
+            string helper = sr.ReadLine();
+
+            int r = 0, c = 0;
+            while (helper != null)
+            {
+                
+                var nums = helper.Split(',');
+                c = 0;
+                while(c<nums.Count())
+                {
+                    myPoint mp = new myPoint(r,c);
+                    Node.dirData[mp] = new Node(mp);
+                    Node.dirData[mp].write(nums[c]);
+                    c++;
+                }
+                helper = sr.ReadLine();
+                r++;
+            }
+            drawPic();
+            sr.Close();
+            fs.Close();
         }
     }
 }
