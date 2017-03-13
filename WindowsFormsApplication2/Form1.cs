@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -33,7 +34,24 @@ namespace WindowsFormsApplication2
             public List<myPoint> connetNode;
             public List<myPoint> wasConnetNode;
 
-            
+
+            private bool checkCircleHelper(ref List<myPoint> theNodes,ref List<myPoint> objNode)
+            {
+                if (theNodes.Count == 0)
+                    return true;
+                var repeatList = theNodes.Intersect(objNode).ToList();
+                if (repeatList.Count > 0)
+                    return false;
+                else
+                {
+                    bool result = true;
+                    for (int i = 0; i < theNodes.Count; i++)
+                    {
+                        result &= checkCircleHelper(ref Node.dirData[theNodes[i]].wasConnetNode,ref objNode);
+                    }
+                    return result;
+                }
+            }
 
             /// <summary>
             /// 解析表达式,构建关系表
@@ -68,7 +86,8 @@ namespace WindowsFormsApplication2
 
                 var repeatList = checkLoop.Intersect(wasConnetNode).ToList();
                 connetNode = checkLoop;
-                if (repeatList.Count > 0)
+
+                if (!checkCircleHelper(ref wasConnetNode,ref checkLoop))
                 {
                     throw new Exception("存在循环引用");
                 }
@@ -396,11 +415,19 @@ namespace WindowsFormsApplication2
                         {
                             disconnect();
                             calculation(text.Substring(1));
+                            notice();
                         }
                         catch(Exception e)
                         {
-                            MessageBox.Show("公式错误");
+                            MessageBox.Show("公式错误:" + e.Message);
+                            string preData = this.data;
+                            this.write(preData);
+                            if (txb != null)
+                            {
+                                txb.Text = preData;
+                            }
                         }
+
                     }
                     else
                     {
@@ -674,6 +701,9 @@ namespace WindowsFormsApplication2
                     else
                         textBox1.Text = Node.dirData[selectPoint].data;
                     textBox1.Tag = selectPoint;
+                }else
+                {
+                    textBox1.Text = "";
                 }
             }
             else
@@ -1011,12 +1041,114 @@ namespace WindowsFormsApplication2
             drawPic();
         }
         #endregion
-        
+
+        #region 读取保存
+
+        /// <summary>
+        /// 解压
+        /// </summary>
+        /// <param name="Value"></param>
+        /// <returns></returns>
+        public static DataSet GetDatasetByString(string Value)
+        {
+            DataSet ds = new DataSet();
+            string CC = GZipDecompressString(Value);
+            System.IO.StringReader Sr = new StringReader(CC);
+            ds.ReadXml(Sr);
+            return ds;
+        }
+
+        /// <summary>
+        /// 根据DATASET压缩字符串
+        /// </summary>
+        /// <param name="ds"></param>
+        /// <returns></returns>
+        public static string GetStringByDataset(string ds)
+        {
+            return GZipCompressString(ds);
+        }
+
+        /// <summary>
+        /// 将传入字符串以GZip算法压缩后，返回Base64编码字符
+        /// </summary>
+        /// <param name="rawString">需要压缩的字符串</param>
+        /// <returns>压缩后的Base64编码的字符串</returns>
+        public static string GZipCompressString(string rawString)
+        {
+            if (string.IsNullOrEmpty(rawString) || rawString.Length == 0)
+            {
+                return "";
+            }
+            else
+            {
+                byte[] rawData = System.Text.Encoding.UTF8.GetBytes(rawString.ToString());
+                byte[] zippedData = Compress(rawData);
+                return (string)(Convert.ToBase64String(zippedData));
+            }
+        }
+
+        /// <summary>
+        /// GZip压缩
+        /// </summary>
+        /// <param name="rawData"></param>
+        /// <returns></returns>
+        static byte[] Compress(byte[] rawData)
+        {
+            MemoryStream ms = new MemoryStream();
+            GZipStream compressedzipStream = new GZipStream(ms, CompressionMode.Compress, true);
+            compressedzipStream.Write(rawData, 0, rawData.Length);
+            compressedzipStream.Close();
+            return ms.ToArray();
+        }
+
+
+        /// <summary>
+        /// 将传入的二进制字符串资料以GZip算法解压缩
+        /// </summary>
+        /// <param name="zippedString">经GZip压缩后的二进制字符串</param>
+        /// <returns>原始未压缩字符串</returns>
+        public static string GZipDecompressString(string zippedString)
+        {
+            if (string.IsNullOrEmpty(zippedString) || zippedString.Length == 0)
+            {
+                return "";
+            }
+            else
+            {
+                byte[] zippedData = Convert.FromBase64String(zippedString.ToString());
+                return (string)(System.Text.Encoding.UTF8.GetString(Decompress(zippedData)));
+            }
+        }
+
+
+        /// <summary>
+        /// ZIP解压
+        /// </summary>
+        /// <param name="zippedData"></param>
+        /// <returns></returns>
+        public static byte[] Decompress(byte[] zippedData)
+        {
+            MemoryStream ms = new MemoryStream(zippedData);
+            GZipStream compressedzipStream = new GZipStream(ms, CompressionMode.Decompress);
+            MemoryStream outBuffer = new MemoryStream();
+            byte[] block = new byte[1024];
+            while (true)
+            {
+                int bytesRead = compressedzipStream.Read(block, 0, block.Length);
+                if (bytesRead <= 0)
+                    break;
+                else
+                    outBuffer.Write(block, 0, bytesRead);
+            }
+            compressedzipStream.Close();
+            return outBuffer.ToArray();
+        }
+
         private void save(string fileName)
         {
             FileStream fs = new FileStream(fileName,FileMode.Create);
             StreamWriter sw = new StreamWriter(fs);
-
+            StringBuilder data = new StringBuilder("");
             foreach (var item in Node.dirData)
             {
                 myPoint p = item.Key;
@@ -1032,17 +1164,33 @@ namespace WindowsFormsApplication2
                 {
                     helper += "R" + con.X.ToString() + "C" + con.Y.ToString() + ";";
                 }
-                sw.WriteLine(helper);
+                data.Append(helper + "\r\n");
             }
+            string result = GZipCompressString(data.ToString());
+            sw.Write(result);
             sw.Close();
             fs.Close();
 
             MessageBox.Show("保存成功");
         }
         
-
-
         private void button1_Click(object sender, EventArgs e)
+        {
+            read();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog();
+
+            sfd.Filter = "txt文件(*.txt) | *.txt";
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                save(sfd.FileName);
+            }
+        }
+
+        private void read()
         {
             OpenFileDialog ofd = new OpenFileDialog();
             ofd.Filter = "txt文件(*.txt) | *.txt";
@@ -1050,9 +1198,17 @@ namespace WindowsFormsApplication2
             {
                 FileStream fs = new FileStream(ofd.FileName, FileMode.OpenOrCreate);
                 StreamReader sr = new StreamReader(fs);
+                string data = sr.ReadToEnd();
+
+                string result = GZipDecompressString(data);
+
+                MemoryStream stream = new MemoryStream(Encoding.ASCII.GetBytes(result));
+                stream.Position = 0;
+                sr = new StreamReader(stream);
                 Node.dirData.Clear();
                 string helper = sr.ReadLine();
                 Regex reg = new Regex(@"R(\d+)C(\d+);");
+
                 while (helper != null)
                 {
                     var info = helper.Split('|');
@@ -1084,38 +1240,12 @@ namespace WindowsFormsApplication2
                 drawPic();
                 sr.Close();
                 fs.Close();
+                
+                stream.Close();
             }
-        }
+            MessageBox.Show("读取成功");
 
-        private void button2_Click(object sender, EventArgs e)
-        {
-            SaveFileDialog sfd = new SaveFileDialog();
-
-            //设置文件类型
-            sfd.Filter = "txt文件(*.txt) | *.txt";
-            if (sfd.ShowDialog() == DialogResult.OK)
-            {
-                save(sfd.FileName);
-            }
         }
-
-        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            thread.Abort();
-        }
-        bool isExpModing = false;
-        private void textBox1_Leave(object sender, EventArgs e)
-        {
-            if (!isExpModing)
-            {
-                var sp = (myPoint)textBox1.Tag;
-                if (sp != null)
-                {
-                    Node.dirData[sp].write(textBox1.Text,textBox1);
-                }
-            }
-        }
-
         private void button3_Click(object sender, EventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
@@ -1124,6 +1254,7 @@ namespace WindowsFormsApplication2
             {
                 FileStream fs = new FileStream(ofd.FileName, FileMode.OpenOrCreate);
                 StreamReader sr = new StreamReader(fs);
+
                 Node.dirData.Clear();
                 string helper = sr.ReadLine();
 
@@ -1148,6 +1279,27 @@ namespace WindowsFormsApplication2
                 fs.Close();
             }
         }
+
+        #endregion
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            thread.Abort();
+        }
+        bool isExpModing = false;
+        private void textBox1_Leave(object sender, EventArgs e)
+        {
+            if (!isExpModing)
+            {
+                var sp = (myPoint)textBox1.Tag;
+                if (sp != null)
+                {
+                    Node.dirData[sp].write(textBox1.Text,textBox1);
+                }
+            }
+        }
+
+
 
         private void textBox1_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
