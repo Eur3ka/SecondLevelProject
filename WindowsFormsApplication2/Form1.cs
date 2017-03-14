@@ -34,7 +34,12 @@ namespace WindowsFormsApplication2
             public List<myPoint> connetNode;
             public List<myPoint> wasConnetNode;
 
-
+            /// <summary>
+            /// 查询回路
+            /// </summary>
+            /// <param name="theNodes"></param>
+            /// <param name="objNode"></param>
+            /// <returns></returns>
             private bool checkCircleHelper(ref List<myPoint> theNodes,ref List<myPoint> objNode)
             {
                 if (theNodes.Count == 0)
