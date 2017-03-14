@@ -193,7 +193,12 @@ namespace WindowsFormsApplication2
                         numsStack.Push(n1 * n2);
                         break;
                     case '/':
+                        if(n2 == 0)
+                        {
+                            throw new Exception("除数不能为0");
+                        }
                         numsStack.Push(n1 / n2);
+
                         break;
                     case '%':
                         numsStack.Push(n1 % n2);
@@ -522,8 +527,6 @@ namespace WindowsFormsApplication2
             }
         }
 
-        
-
         #region 界面
 
         List<Button> colButton = new List<Button>();
@@ -628,7 +631,6 @@ namespace WindowsFormsApplication2
                 vsb.Value++;
                 picbox.Focus();
                 p.X = vsb.Value;
-                drawPic();
                 for (int i = 0; i < rowButton.Count; ++i)
                 {
                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
@@ -637,17 +639,18 @@ namespace WindowsFormsApplication2
             }
             else if(e.Delta > 0 && vsb.Value >0)
             {
-                
                 vsb.Value--;
                 picbox.Focus();
                 p.X = vsb.Value;
-                drawPic();
                 for (int i = 0; i < rowButton.Count; ++i)
                 {
                     rowButton[i].Text = "R" + (i + vsb.Value + 1);
                 }
             }
+
+            drawPic();
             drawRectangle(selectPoint);
+            drawSelectRect(selectPoints);
         }
         
         private void Hsb_ValueChanged(object sender, EventArgs e)
@@ -661,6 +664,7 @@ namespace WindowsFormsApplication2
                 colButton[i].Text = "C" + (i + hsbar.Value + 1);
             }
             drawRectangle(selectPoint);
+            drawSelectRect(selectPoints);
         }
 
         private void Vsb_ValueChanged(object sender, EventArgs e)
@@ -674,15 +678,32 @@ namespace WindowsFormsApplication2
                 rowButton[i].Text = "R" + (i + vsbar.Value+1);
             }
             drawRectangle(selectPoint);
+            drawSelectRect(selectPoints);
         }
 
         //双击某绘制的单元格处会在此处生成一个textbox,用于输入文本
         private void Picbox_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            generateTextBox(selectPoint);
+            if(!isExpModing)
+                generateTextBox(selectPoint);
+        }
+        private void textBox1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if(e.Shift & e.KeyCode == Keys.Oemplus)
+            {
+                
+            }
+            else if (e.KeyCode == Keys.Oemplus && selectPoint != null)
+            {
+                selectPoints = "";
+                isExpModing = true;
+                expModPoint = selectPoint;
+            }
         }
 
         myPoint expSelectPoint = null;
+
+        string selectPoints = "";
         private void Picbox_MouseClick(object sender, MouseEventArgs e)
         {
             picbox.Focus();
@@ -711,9 +732,42 @@ namespace WindowsFormsApplication2
                 if (isExpModing)
                 {
                     expSelectPoint = new myPoint(p.X + y, p.Y + x);
-                    textBox1.Text += "R" + expSelectPoint.X + "C" + expSelectPoint.Y + ";";
+                    string preString = textBox1.Text;
+                    string symbols = "-+*/%(";
+                    if (symbols.Contains(preString[preString.Length-1]))
+                        textBox1.Text += "R" + expSelectPoint.X + "C" + expSelectPoint.Y + ";";
+                    else
+                    {
+                        int index = preString.LastIndexOf('R');
+                        if (index != -1)
+                        {
+                            preString = preString.Substring(0, index);
+                            index = selectPoints.LastIndexOf('R');
+                            selectPoints = selectPoints.Substring(0, index);
+                        }
+                        textBox1.Text = preString+ "R" + expSelectPoint.X + "C" + expSelectPoint.Y + ";";
+                    }
+                    selectPoints += "R" + expSelectPoint.X + "C" + expSelectPoint.Y + ";,";
+                    drawPic();
+                    g.DrawRectangle(new Pen(Color.Black, 2), (selectPoint.Y - p.Y) * 75, (selectPoint.X - p.X) * 20, 75, 20);
+                    drawSelectRect(selectPoints);
                 }
             }
+        }
+
+        private void drawSelectRect(string data)
+        {
+            string[] points = data.Split(',');
+            Regex reg = new Regex(@"R(\d+)C(\d+);");
+            for (int i = 0; i < points.Length-1; i++)
+            {
+                var match = reg.Match(points[i]);
+                int x = int.Parse(match.Groups[1].Value);
+                int y = int.Parse(match.Groups[2].Value);
+                g.DrawRectangle(new Pen(Color.Orange, 2), (y - p.Y) * 75, (x - p.X) * 20, 75, 20);
+            }
+            picbox.Image = img;
+
         }
 
         private void generateTextBox(myPoint loc)
@@ -752,12 +806,19 @@ namespace WindowsFormsApplication2
 
         private void Txb_TextChanged(object sender, EventArgs e)
         {
+
             textBox1.Text = ((TextBox)sender).Text;
         }
 
         private void Txb_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
-            if(e.KeyCode == Keys.Enter)
+            if (e.KeyCode == Keys.Oemplus && selectPoint != null)
+            {
+                selectPoints = "";
+                isExpModing = true;
+                expModPoint = selectPoint;
+            }
+            if (e.KeyCode == Keys.Enter)
             {
                 picbox.Focus();
             }
@@ -796,6 +857,7 @@ namespace WindowsFormsApplication2
                         {
                             if (selectPoint != null)
                             {
+                                selectPoints = "";
                                 isExpModing = true;
                                 expModPoint = selectPoint;
                                 textBox1.Text = "=";
@@ -974,13 +1036,17 @@ namespace WindowsFormsApplication2
         private void Txb_Leave(object sender, EventArgs e)
         {
             var txb = sender as TextBox;
-            myPoint point = new myPoint(p.X + ((Point)txb.Tag).X, p.Y + ((Point)txb.Tag).Y);
-            if (!Node.dirData.ContainsKey(point))
+            if (!isExpModing)
             {
-                Node.dirData[point] = new Node(point);
+                
+                myPoint point = new myPoint(p.X + ((Point)txb.Tag).X, p.Y + ((Point)txb.Tag).Y);
+                if (!Node.dirData.ContainsKey(point))
+                {
+                    Node.dirData[point] = new Node(point);
+                }
+                Node.dirData[point].write(txb.Text.Trim());
+                drawPic();
             }
-            Node.dirData[point].write(txb.Text.Trim());
-            drawPic();
             txb.Dispose();
         }
 
@@ -1039,6 +1105,61 @@ namespace WindowsFormsApplication2
         private void Form1_Paint(object sender, PaintEventArgs e)
         {
             drawPic();
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            thread.Abort();
+        }
+        bool isExpModing = false;
+        private void textBox1_Leave(object sender, EventArgs e)
+        {
+            if (!isExpModing)
+            {
+                var sp = (myPoint)textBox1.Tag;
+                if (sp != null)
+                {
+                    Node.dirData[sp].write(textBox1.Text, textBox1);
+                }
+            }
+        }
+
+        private void textBox1_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            
+
+            if (e.KeyCode == Keys.Enter)
+            {
+                if (isExpModing)
+                {
+                    isExpModing = false;
+                    if (!Node.dirData.ContainsKey(expModPoint))
+                    {
+                        Node.dirData[expModPoint] = new Node(expModPoint);
+                    }
+                    Node.dirData[expModPoint].write(textBox1.Text, textBox1);
+
+                    drawPic();
+                    expSelectPoint = null;
+                    expSelectPoint = null;
+                }
+                else
+                {
+                    if (selectPoint != null)
+                    {
+                        if (!Node.dirData.ContainsKey(selectPoint))
+                        {
+                            Node.dirData[selectPoint] = new Node(selectPoint);
+                        }
+                        Node.dirData[selectPoint].write(textBox1.Text, textBox1);
+                        drawPic();
+                    }
+                    else
+                    {
+                        MessageBox.Show("未选中单元格");
+                    }
+                }
+            }
         }
         #endregion
 
@@ -1202,7 +1323,7 @@ namespace WindowsFormsApplication2
 
                 string result = GZipDecompressString(data);
 
-                MemoryStream stream = new MemoryStream(Encoding.ASCII.GetBytes(result));
+                MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(result));
                 stream.Position = 0;
                 sr = new StreamReader(stream);
                 Node.dirData.Clear();
@@ -1242,8 +1363,9 @@ namespace WindowsFormsApplication2
                 fs.Close();
                 
                 stream.Close();
+
+                MessageBox.Show("读取成功");
             }
-            MessageBox.Show("读取成功");
 
         }
         private void button3_Click(object sender, EventArgs e)
@@ -1280,63 +1402,9 @@ namespace WindowsFormsApplication2
             }
         }
 
+
         #endregion
 
-        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            thread.Abort();
-        }
-        bool isExpModing = false;
-        private void textBox1_Leave(object sender, EventArgs e)
-        {
-            if (!isExpModing)
-            {
-                var sp = (myPoint)textBox1.Tag;
-                if (sp != null)
-                {
-                    Node.dirData[sp].write(textBox1.Text,textBox1);
-                }
-            }
-        }
 
-
-
-        private void textBox1_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
-        {
-
-
-            if (e.KeyCode == Keys.Enter)
-            {
-                if (isExpModing)
-                {
-                    isExpModing = false;
-                    if (!Node.dirData.ContainsKey(expModPoint))
-                    {
-                        Node.dirData[expModPoint] = new Node(expModPoint);
-                    }
-                    Node.dirData[expModPoint].write(textBox1.Text, textBox1);
-                    
-                    drawPic();
-                    expSelectPoint = null;
-                    expSelectPoint = null;
-                }
-                else
-                {
-                    if (selectPoint != null)
-                    {
-                        if (!Node.dirData.ContainsKey(selectPoint))
-                        {
-                            Node.dirData[selectPoint] = new Node(selectPoint);
-                        }
-                        Node.dirData[selectPoint].write(textBox1.Text,textBox1);
-                        drawPic();
-                    }
-                    else
-                    {
-                        MessageBox.Show("未选中单元格");
-                    }
-                }
-            }
-        }
     }
 }
