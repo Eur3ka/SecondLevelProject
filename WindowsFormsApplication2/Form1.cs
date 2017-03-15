@@ -654,7 +654,7 @@ namespace WindowsFormsApplication2
             }
 
             drawPic();
-            drawRectangle(selectPoint);
+            drawRectangle(selectPoint,Color.Black);
             drawSelectRect(selectPoints);
         }
         
@@ -668,7 +668,7 @@ namespace WindowsFormsApplication2
             {
                 colButton[i].Text = "C" + (i + hsbar.Value + 1);
             }
-            drawRectangle(selectPoint);
+            drawRectangle(selectPoint,Color.Black);
             drawSelectRect(selectPoints);
         }
 
@@ -682,7 +682,7 @@ namespace WindowsFormsApplication2
             {
                 rowButton[i].Text = "R" + (i + vsbar.Value+1);
             }
-            drawRectangle(selectPoint);
+            drawRectangle(selectPoint,Color.Black);
             drawSelectRect(selectPoints);
         }
 
@@ -723,7 +723,11 @@ namespace WindowsFormsApplication2
                 if (Node.dirData.ContainsKey(selectPoint))
                 {
                     if (Node.dirData[selectPoint].function != "")
+                    {
                         textBox1.Text = "=" + Node.dirData[selectPoint].function;
+                        drawSelectRect(textBox1.Text);
+
+                    }
                     else
                         textBox1.Text = Node.dirData[selectPoint].data;
                     textBox1.Tag = selectPoint;
@@ -762,16 +766,15 @@ namespace WindowsFormsApplication2
 
         private void drawSelectRect(string data)
         {
-            string[] points = data.Split(',');
             Regex reg = new Regex(@"R(\d+)C(\d+);");
-            for (int i = 0; i < points.Length-1; i++)
+            var mat = reg.Matches(textBox1.Text);
+            
+            foreach (Match item in mat)
             {
-                var match = reg.Match(points[i]);
-                int x = int.Parse(match.Groups[1].Value);
-                int y = int.Parse(match.Groups[2].Value);
-                g.DrawRectangle(new Pen(Color.Orange, 2), (y - p.Y) * 75, (x - p.X) * 20, 75, 20);
+                int m = int.Parse(item.Groups[1].Value);
+                int n = int.Parse(item.Groups[2].Value);
+                drawRectangle(new myPoint(m, n), Color.Orange);
             }
-            picbox.Image = img;
 
         }
 
@@ -827,7 +830,7 @@ namespace WindowsFormsApplication2
             {
                 picbox.Focus();
             }
-            drawRectangle(selectPoint);
+            drawRectangle(selectPoint,Color.Black);
         }
 
         Thread thread;
@@ -840,13 +843,13 @@ namespace WindowsFormsApplication2
             create();
         }
 
-        private void drawRectangle(myPoint point)
+        private void drawRectangle(myPoint point,Color col)
         {
             if (point != null)
             {
                 if (point.X >= p.X && point.Y >= p.Y)
                 {
-                    g.DrawRectangle(new Pen(Color.Black, 2), (point.Y - p.Y) * 75, (point.X - p.X) * 20, 75, 20);
+                    g.DrawRectangle(new Pen(col, 2), (point.Y - p.Y) * 75, (point.X - p.X) * 20, 75, 20);
                     picbox.Image = img;
                 }
             }
@@ -905,14 +908,18 @@ namespace WindowsFormsApplication2
                         }
                         if (Node.dirData.ContainsKey(selectPoint))
                         {
-                            textBox1.Text = Node.dirData[selectPoint].data;
+                            if (Node.dirData[selectPoint].function != "")
+                                textBox1.Text = "=" + Node.dirData[selectPoint].function;
+                            else
+                                textBox1.Text = Node.dirData[selectPoint].data;
                         }
                         else
                         {
                             textBox1.Text = "";
                         }
                         drawPic();
-                        drawRectangle(selectPoint);
+                        drawRectangle(selectPoint,Color.Black);
+                        drawSelectRect(textBox1.Text);
                         picbox.Focus();
                         break;
                     }
@@ -938,14 +945,18 @@ namespace WindowsFormsApplication2
                         }
                         if (Node.dirData.ContainsKey(selectPoint))
                         {
-                            textBox1.Text = Node.dirData[selectPoint].data;
+                            if (Node.dirData[selectPoint].function != "")
+                                textBox1.Text = "=" + Node.dirData[selectPoint].function;
+                            else
+                                textBox1.Text = Node.dirData[selectPoint].data;
                         }
                         else
                         {
                             textBox1.Text = "";
                         }
                         drawPic();
-                        drawRectangle(selectPoint);
+                        drawRectangle(selectPoint,Color.Black);
+                        drawSelectRect(textBox1.Text);
                         picbox.Focus();
                         break;
                     }
@@ -972,14 +983,18 @@ namespace WindowsFormsApplication2
                         }
                         if (Node.dirData.ContainsKey(selectPoint))
                         {
-                            textBox1.Text = Node.dirData[selectPoint].data;
+                            if (Node.dirData[selectPoint].function != "")
+                                textBox1.Text = "=" + Node.dirData[selectPoint].function;
+                            else
+                                textBox1.Text = Node.dirData[selectPoint].data;
                         }
                         else
                         {
                             textBox1.Text = "";
                         }
                         drawPic();
-                        drawRectangle(selectPoint);
+                        drawRectangle(selectPoint,Color.Black);
+                        drawSelectRect(textBox1.Text);
                         picbox.Focus();
                         break;
                     }
@@ -1006,14 +1021,18 @@ namespace WindowsFormsApplication2
                         }
                         if (Node.dirData.ContainsKey(selectPoint))
                         {
-                            textBox1.Text = Node.dirData[selectPoint].data;
+                            if (Node.dirData[selectPoint].function != "")
+                                textBox1.Text = "="+Node.dirData[selectPoint].function;
+                            else
+                                textBox1.Text = Node.dirData[selectPoint].data;
                         }
                         else
                         {
                             textBox1.Text = "";
                         }
                         drawPic();
-                        drawRectangle(selectPoint);
+                        drawRectangle(selectPoint,Color.Black);
+                        drawSelectRect(textBox1.Text);
                         picbox.Focus();
                         break;
                     }
