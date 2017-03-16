@@ -6,6 +6,8 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -23,6 +25,7 @@ namespace WindowsFormsApplication2
             InitializeComponent();
         }
 
+        [Serializable]
         class Node
         {
             static public SortedDictionary<myPoint, Node> dirData = new SortedDictionary<myPoint, Node>();
@@ -470,7 +473,7 @@ namespace WindowsFormsApplication2
             }
 
         }
-
+        [Serializable]
         class myPoint:IComparable<myPoint>
         {
             public int X;
@@ -1289,6 +1292,7 @@ namespace WindowsFormsApplication2
             return outBuffer.ToArray();
         }
 
+
         private void save(string fileName)
         {
             FileStream fs = new FileStream(fileName,FileMode.Create);
@@ -1298,7 +1302,7 @@ namespace WindowsFormsApplication2
             {
                 myPoint p = item.Key;
                 Node n = item.Value;
-                string helper = n.data + "|" + n.function + "|" + "R" + p.X.ToString() + "C" + p.Y.ToString() + ";|";
+                string helper = n.function + "|" + "R" + p.X.ToString() + "C" + p.Y.ToString() + ";|";
                 foreach (var con in n.connetNode)
                 {
                     helper += "R" + con.X.ToString() + "C" + con.Y.ToString() + ";";
@@ -1309,6 +1313,7 @@ namespace WindowsFormsApplication2
                 {
                     helper += "R" + con.X.ToString() + "C" + con.Y.ToString() + ";";
                 }
+                helper += "|"+n.data;
                 data.Append(helper + "\r\n");
             }
             string result = GZipCompressString(data.ToString());
@@ -1334,7 +1339,18 @@ namespace WindowsFormsApplication2
                 save(sfd.FileName);
             }
         }
-
+        private string[] split(string obj)
+        {
+            string[] result = new string[5];
+            for (int i = 0; i < 4; i++)
+            {
+                int index = obj.IndexOf('|');
+                result[i] = obj.Substring(0,index);
+                obj = obj.Substring(index+1);
+            }
+            result[4] = obj;
+            return result;
+        }
         private void read()
         {
             OpenFileDialog ofd = new OpenFileDialog();
@@ -1356,23 +1372,23 @@ namespace WindowsFormsApplication2
 
                 while (helper != null)
                 {
-                    var info = helper.Split('|');
-                    var match = reg.Match(info[2]);
+                    var info = split(helper);
+                    var match = reg.Match(info[1]);
                     int x = int.Parse(match.Groups[1].Value);
                     int y = int.Parse(match.Groups[2].Value);
                     myPoint p = new myPoint(x, y);
                     Node n = new Node(p);
-                    n.data = info[0];
-                    n.function = info[1];
+                    n.data = info[4];
+                    n.function = info[0];
                     n.location = p;
-                    var mat = reg.Matches(info[3]);
+                    var mat = reg.Matches(info[2]);
                     foreach (Match item in mat)
                     {
                         x = int.Parse(item.Groups[1].Value);
                         y = int.Parse(item.Groups[2].Value);
                         n.connetNode.Add(new myPoint(x, y));
                     }
-                    mat = reg.Matches(info[4]);
+                    mat = reg.Matches(info[3]);
                     foreach (Match item in mat)
                     {
                         x = int.Parse(item.Groups[1].Value);
@@ -1383,12 +1399,19 @@ namespace WindowsFormsApplication2
                     helper = sr.ReadLine();
                 }
                 drawPic();
+                
                 sr.Close();
                 fs.Close();
                 
                 stream.Close();
+                isExpModing = false;
+                expModPoint = null;
+                selectPoint = null;
+                selectPoints = "";
+                textBox1.Text = "";
 
                 MessageBox.Show("读取成功");
+                
             }
 
         }
@@ -1412,9 +1435,12 @@ namespace WindowsFormsApplication2
                     c = 0;
                     while (c < nums.Count())
                     {
-                        myPoint mp = new myPoint(r, c);
-                        Node.dirData[mp] = new Node(mp);
-                        Node.dirData[mp].write(nums[c]);
+                        if (nums[c] != "")
+                        {
+                            myPoint mp = new myPoint(r, c);
+                            Node.dirData[mp] = new Node(mp);
+                            Node.dirData[mp].write(nums[c]);
+                        }
                         c++;
                     }
                     helper = sr.ReadLine();
@@ -1424,6 +1450,12 @@ namespace WindowsFormsApplication2
                 sr.Close();
                 fs.Close();
             }
+
+            isExpModing = false;
+            expModPoint = null;
+            selectPoint = null;
+            selectPoints = "";
+            textBox1.Text = "";
         }
 
 
